@@ -1,0 +1,11 @@
+{
+	"type":"repository",
+	"version":"master",
+	"dependencies":[
+		{
+			"type":"package",
+			"version":"2.42.0",
+			"name":"FieloPLT"
+		}
+	]
+}
