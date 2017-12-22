@@ -70,7 +70,7 @@ public class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 		return sentEmails;
 	}
 
-	private Boolean sendCampaignEmails(Map<Id,Member__c> membersMap, EmailTemplate emailTemplate, Map<Id,Map<String,String>> memberValues, String campaignId){
+	private Boolean sendCampaignEmails(Map<Id,FieloPLT__Member__c> membersMap, EmailTemplate emailTemplate, Map<Id,Map<String,String>> memberValues, String campaignId){
 		Boolean success;
 		EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignId);
 		HttpResponse response = makeSendCallout(emailData);       
@@ -204,7 +204,7 @@ public class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         request.setEndpoint(endpoint);
         request.setMethod(method);
         request.setHeader('Content-Type', 'application/json;charset=UTF-8');
-        request.setHeader('Authorization', 'Bearer ' + PublicSettings__c.getOrgDefaults().SendgridApiKey__c);
+        request.setHeader('Authorization', 'Bearer ' + FieloPLT__PublicSettings__c.getOrgDefaults().SendgridApiKey__c);
         
         if (!String.isBlank(body)) {
 	        request.setBody(body);
@@ -223,9 +223,9 @@ public class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 	}
 
 	public Boolean executeCampaign(Id campaignId, Set<Id> memberIds, Map<Id,Map<String,String>> memberValues) {
-		FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM EmailCampaign__c WHERE Id =: campaignId];
+		FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
 
-		Map<Id,Member__c> membersMap = new Map<Id,Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
+		Map<Id,FieloPLT__Member__c> membersMap = new Map<Id,Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
 		// TODO: NO TEMPLATE = ERROR
 
 		String packagePrefix;
