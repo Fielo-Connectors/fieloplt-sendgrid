@@ -4,5 +4,9 @@
 		<members>*</members>
 		<name>ApexClass</name>
 	</types>
+	<types>
+		<members>FieloPLT__PublicSettings__c.FieloPLT__SendgridApiKey__c</members>
+		<name>CustomField</name>
+	</types>
 	<version>41.0</version>
 </Package>
