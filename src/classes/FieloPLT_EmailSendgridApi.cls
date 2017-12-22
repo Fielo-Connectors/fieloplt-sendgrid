@@ -225,7 +225,7 @@ public class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 	public Boolean executeCampaign(Id campaignId, Set<Id> memberIds, Map<Id,Map<String,String>> memberValues) {
 		FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
 
-		Map<Id,FieloPLT__Member__c> membersMap = new Map<Id,Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
+		Map<Id,FieloPLT__Member__c> membersMap = new Map<Id,FieloPLT__Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
 		// TODO: NO TEMPLATE = ERROR
 
 		String packagePrefix;
