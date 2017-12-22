@@ -204,7 +204,7 @@ public class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         request.setEndpoint(endpoint);
         request.setMethod(method);
         request.setHeader('Content-Type', 'application/json;charset=UTF-8');
-        request.setHeader('Authorization', 'Bearer ' + FieloPLT__PublicSettings__c.getOrgDefaults().FieloPLT__SendgridApiKey__c);
+        request.setHeader('Authorization', 'Bearer ' + FieloPLT__PublicSettings__c.getOrgDefaults().FieloPLT_SendgridApiKey__c);
         
         if (!String.isBlank(body)) {
 	        request.setBody(body);
