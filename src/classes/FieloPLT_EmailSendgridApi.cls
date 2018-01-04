@@ -1,4 +1,4 @@
-public global FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterface {
+global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterface {
 
 	private class EmailData{
 	   String personalizations;
