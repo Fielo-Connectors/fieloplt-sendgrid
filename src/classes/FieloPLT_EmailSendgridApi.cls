@@ -7,20 +7,31 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 	   Set<Id> emails;
 	}
 
+	private class EmailResult{
+	   Set<Id> sentEmails;
+	   Map<Set<Id>, String> errorEmails;
+	}	
+
 	public void sendTransactionalEmails(Set<Id> emailAlertIds, Map<Id,Map<String,String>> dataValues) {
 		List<FieloPLT__EmailAlert__c> emails = [SELECT FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__ToAddress__c FROM FieloPLT__EmailAlert__c WHERE Id in : emailAlertIds ORDER BY FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c];
-		Set<Id> sentEmails = sendEmailsGroupedByTemplate(emails, dataValues);
+		EmailResult emailResult = sendEmailsGroupedByTemplate(emails, dataValues);
 
 		List<FieloPLT__EmailAlert__c> emailsToUpdate = new List<FieloPLT__EmailAlert__c>();
-		for(Id sentEmailId : sentEmails){
+		for(Id sentEmailId : emailResult.sentEmails){
 			emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = sentEmailId, FieloPLT__Status__c = 'Sent'));
 		}
+		for(Id errorEmailId : emailResult.errorEmails){
+			emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = errorEmailId, FieloPLT__Status__c = 'Error', FieloPLT__ErrorDescription__c = emailResult.errorEmails.get(errorEmailId)));
+		}		
 		update emailsToUpdate;
 	}	
 
-	private Set<Id> sendEmailsGroupedByTemplate(List<FieloPLT__EmailAlert__c> emails, Map<Id,Map<String,String>> dataValues){
+	private EmailResult sendEmailsGroupedByTemplate(List<FieloPLT__EmailAlert__c> emails, Map<Id,Map<String,String>> dataValues){
 
+		EmailResult emailResult = new EmailResult(); 
 		Set<Id> sentEmails = new Set<Id>();
+		Set<Id> errorEmails = new Set<Id>();
+
 		Map<String,List<FieloPLT__EmailAlert__c>> emailAlertsbyTemplateMap = new Map<String,List<FieloPLT__EmailAlert__c>>();
 
 		Set<String> emailTemplateNames = new Set<String>();
@@ -57,17 +68,20 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 				HttpResponse response = makeSendCallout(emailData);
 
 		        if (responseOk(response.getStatusCode())) {
-		        	// Updates list of sent emails for changing the status later (not now becuase it would cause "uncommitted" error)
+		        	// Update list of sent emails for changing the status later (not now becuase it would cause "uncommitted" error)
 		        	sentEmails.addAll(emailData.emails);
 		        } else {
-		        	// TODO: handle errors
+		        	// Update list of emails with errors
+		        	errorEmails.put(emailData.emails, response.getBody());
 		        }			
 				callOutsCounter++;
 			}else{
 				break;
 			}
 		}
-		return sentEmails;
+		emailReturn.sentEmails = sentEmails;
+		emailReturn.errorEmails = errorEmails;
+		return emailReturn;
 	}
 
 	private Boolean sendCampaignEmails(Map<Id,FieloPLT__Member__c> membersMap, EmailTemplate emailTemplate, Map<Id,Map<String,String>> memberValues, String campaignId){
@@ -75,6 +89,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 		EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignId);
 		HttpResponse response = makeSendCallout(emailData);       
         if (!responseOk(response.getStatusCode())) {
+			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = response.getBody());
             success = false;
         }else {
         	success = true;	
@@ -185,7 +200,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         System.debug('response.getBody() = ' + response.getBody()); 
   
         if (!responseOk(response.getStatusCode())) {
-        	// TODO: handle errors
+        	// Handle errors here?
         }
         return response;										
 	}	
@@ -246,7 +261,10 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 	public void finishCampaign(Id campaignId, Boolean success, Id jobId) {
 		if(success){
 			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Sent');
+		} else {
+			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Error');
 		}
+	
 	}
 
 	public Map<String,Integer> getStatistics(String campaignId) {
