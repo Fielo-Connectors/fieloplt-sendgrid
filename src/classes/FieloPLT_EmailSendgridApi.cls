@@ -20,7 +20,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 		for(Id sentEmailId : emailResult.sentEmails){
 			emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = sentEmailId, FieloPLT__Status__c = 'Sent'));
 		}
-		for(Id errorEmailId : emailResult.errorEmails){
+		for(Id errorEmailId : emailResult.errorEmails.keySet()){
 			emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = errorEmailId, FieloPLT__Status__c = 'Error', FieloPLT__ErrorDescription__c = emailResult.errorEmails.get(errorEmailId)));
 		}		
 		update emailsToUpdate;
