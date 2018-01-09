@@ -30,7 +30,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
 		EmailResult emailResult = new EmailResult(); 
 		Set<Id> sentEmails = new Set<Id>();
-		Set<Id> errorEmails = new Set<Id>();
+		Map<Set<Id>, String> errorEmails = new Map<Set<Id>, String>();
 
 		Map<String,List<FieloPLT__EmailAlert__c>> emailAlertsbyTemplateMap = new Map<String,List<FieloPLT__EmailAlert__c>>();
 
@@ -79,9 +79,9 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 				break;
 			}
 		}
-		emailReturn.sentEmails = sentEmails;
-		emailReturn.errorEmails = errorEmails;
-		return emailReturn;
+		emailResult.sentEmails = sentEmails;
+		emailResult.errorEmails = errorEmails;
+		return emailResult;
 	}
 
 	private Boolean sendCampaignEmails(Map<Id,FieloPLT__Member__c> membersMap, EmailTemplate emailTemplate, Map<Id,Map<String,String>> memberValues, String campaignId){
