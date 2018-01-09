@@ -86,9 +86,10 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         return emailResult;
     }
 
-    private Boolean sendCampaignEmails(Map<Id,FieloPLT__Member__c> membersMap, EmailTemplate emailTemplate, Map<Id,Map<String,String>> memberValues, String campaignId){
+    private Boolean sendCampaignEmails(Map<Id,FieloPLT__Member__c> membersMap, EmailTemplate emailTemplate, Map<Id,Map<String,String>> memberValues, String campaignStringId, Id campaignId){
         Boolean success;
-        EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignId);
+        System.debug('membersMap.values() = ' + membersMap.values());
+        EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignStringId);
         HttpResponse response = makeSendCallout(emailData);       
         if (!responseOk(response.getStatusCode())) {
             update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(response.getBody()));
@@ -103,7 +104,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         return getEmailData(emailTemplate, emailList, dataValues, emailField, null);
     }
 
-    private EmailData getEmailData(EmailTemplate emailTemplate, List<SObject> emailList, Map<Id,Map<String,String>> dataValues, String emailField, String campaignId) {
+    private EmailData getEmailData(EmailTemplate emailTemplate, List<SObject> emailList, Map<Id,Map<String,String>> dataValues, String emailField, String campaignStringId) {
         String subject;
         String content;
         EmailData emailData = new EmailData();
@@ -134,17 +135,18 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         }
 
         String category = '';
-        if (!String.isBlank(campaignId)) {
+        if (!String.isBlank(campaignStringId)) {
             category =  ', "categories": [' +
-                            '"' + campaignId + '"' +
+                            '"' + campaignStringId + '"' +
                         ']';
         }
 
         String personalizations = '';
-        Set<Id> emails= new Set<Id>();                      
+        Set<Id> emails= new Set<Id>();   
+        System.debug('emailList = ' + emailList);                   
         for(SObject email : emailList){
             emails.add(email.Id);
-            Map<String,String> sub = dataValues.get(email.Id);
+            Map<String,String> sub = (dataValues != null ? dataValues.get(email.Id) : null);
             String substitutions = '';
             if(sub != null){
                 for(String field : sub.keySet()){
@@ -164,7 +166,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             }
             personalizations += 
                                 '{' +
-                                    '"to###": [' +
+                                    '"to": [' +
                                         '{' +
                                             '"email": "' + email.get(emailField) + '"' +                  
                                         '}' +                           
@@ -240,8 +242,9 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     }
 
     public Boolean executeCampaign(Id campaignId, Set<Id> memberIds, Map<Id,Map<String,String>> memberValues) {
+    	Boolean success;
+    	System.debug('memberIds = ' + memberIds);
         FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
-
         Map<Id,FieloPLT__Member__c> membersMap = new Map<Id,FieloPLT__Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
         // TODO: NO TEMPLATE = ERROR
 
@@ -257,7 +260,13 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         EmailTemplate emailTemplate = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
 
         // Send the emails
-        return sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c);
+        try {
+			success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
+        } catch(Exception e) {
+			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = e.getMessage());
+        	success = false;
+        }
+        return success;
     }
 
     public void finishCampaign(Id campaignId, Boolean success, Id jobId) {
@@ -266,7 +275,6 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         } else {
             update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Error');
         }
-    
     }
 
     public Map<String,Integer> getStatistics(String campaignId) {
