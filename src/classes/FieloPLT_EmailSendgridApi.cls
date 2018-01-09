@@ -9,7 +9,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
 	private class EmailResult{
 	   Set<Id> sentEmails;
-	   Map<Set<Id>, String> errorEmails;
+	   Map<Id, String> errorEmails;
 	}	
 
 	public void sendTransactionalEmails(Set<Id> emailAlertIds, Map<Id,Map<String,String>> dataValues) {
@@ -30,7 +30,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
 		EmailResult emailResult = new EmailResult(); 
 		Set<Id> sentEmails = new Set<Id>();
-		Map<Set<Id>, String> errorEmails = new Map<Set<Id>, String>();
+		Map<Id, String> errorEmails = new Map<Id, String>();
 
 		Map<String,List<FieloPLT__EmailAlert__c>> emailAlertsbyTemplateMap = new Map<String,List<FieloPLT__EmailAlert__c>>();
 
@@ -72,7 +72,9 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 		        	sentEmails.addAll(emailData.emails);
 		        } else {
 		        	// Update list of emails with errors
-		        	errorEmails.put(emailData.emails, response.getBody());
+		        	for(Id emailId : emailData.emails) {
+		        		errorEmails.put(emailId, response.getBody());
+		        	}
 		        }			
 				callOutsCounter++;
 			}else{
