@@ -264,10 +264,10 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         }else{
             devName = emailCampaign.FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c;
         }
-        EmailTemplate emailTemplate = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
 
         // Send the emails
         try {
+	        EmailTemplate emailTemplate = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
 			success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
         } catch(Exception e) {
 			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = e.getMessage());
