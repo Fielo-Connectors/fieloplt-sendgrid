@@ -65,18 +65,25 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             if(callOutsCounter <= 10){
                 
                 EmailData emailData = getEmailData(emailTemplatesMap.get(templateName), emailAlertsbyTemplateMap.get(templateName), dataValues, 'FieloPLT__ToAddress__c');
-                HttpResponse response = makeSendCallout(emailData);
+                if (emailData != null) {
+	                HttpResponse response = makeSendCallout(emailData);
 
-                if (responseOk(response.getStatusCode())) {
-                    // Update list of sent emails for changing the status later (not now becuase it would cause "uncommitted" error)
-                    sentEmails.addAll(emailData.emails);
+	                if (responseOk(response.getStatusCode())) {
+	                    // Update list of sent emails for changing the status later (not now becuase it would cause "uncommitted" error)
+	                    sentEmails.addAll(emailData.emails);
+	                } else {
+	                    // Update list of emails with errors
+	                    for(Id emailId : emailData.emails) {
+	                        errorEmails.put(emailId, formatErrorDescription(response.getBody()));
+	                    }
+	                }           
+	                callOutsCounter++;                	
                 } else {
                     // Update list of emails with errors
-                    for(Id emailId : emailData.emails) {
-                        errorEmails.put(emailId, formatErrorDescription(response.getBody()));
+                    for(SObject email : emailAlertsbyTemplateMap.get(templateName)) {
+                        errorEmails.put(email.Id, 'Email template not found.');
                     }
-                }           
-                callOutsCounter++;
+                }
             }else{
                 break;
             }
@@ -90,13 +97,18 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         Boolean success;
         System.debug('membersMap.values() = ' + membersMap.values());
         EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignStringId);
-        HttpResponse response = makeSendCallout(emailData);       
-        if (!responseOk(response.getStatusCode())) {
-            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(response.getBody()));
-            success = false;
-        }else {
-            success = true; 
-        }
+        if (emailData != null) {
+	        HttpResponse response = makeSendCallout(emailData);       
+	        if (!responseOk(response.getStatusCode())) {
+	            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(response.getBody()));
+	            success = false;
+	        }else {
+	            success = true; 
+	        }
+    	} else {
+			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Email template not found.'); 
+    		success = false;
+    	}
         return success;
     }
 
@@ -126,12 +138,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
                         '}';
             }
         }else{
-            subject = 'Test Email';
-            content = 
-                        '{' +
-                            '"type": "text/plain",' +
-                            '"value": "Text Body"' +
-                        '}';
+        	return null;
         }
 
         String category = '';
