@@ -21,7 +21,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = sentEmailId, FieloPLT__Status__c = 'Sent'));
         }
         for(Id errorEmailId : emailResult.errorEmails.keySet()){
-            emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = errorEmailId, FieloPLT__Status__c = 'Error', FieloPLT__ErrorDescription__c = emailResult.errorEmails.get(errorEmailId)));
+            emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = errorEmailId, FieloPLT__Status__c = 'Error', FieloPLT__ErrorDescription__c = formatErrorDescription(emailResult.errorEmails.get(errorEmailId))));
         }       
         update emailsToUpdate;
     }   
@@ -270,7 +270,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 	        EmailTemplate emailTemplate = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
 			success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
         } catch(Exception e) {
-			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = e.getMessage());
+			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
         	success = false;
         }
         return success;
@@ -302,8 +302,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         return result;
     }
 
-    private String formatErrorDescription(String errorBody) {
-        // To change in case we decide to get only the message itself
-        return errorBody;
-    }
+	private String formatErrorDescription(String errorDescription) {
+		return errorDescription.substring(0, 255);
+	}
 }
