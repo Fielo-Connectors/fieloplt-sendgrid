@@ -24,7 +24,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = errorEmailId, FieloPLT__Status__c = 'Error', FieloPLT__ErrorDescription__c = formatErrorDescription(emailResult.errorEmails.get(errorEmailId))));
         }       
         update emailsToUpdate;
-    }   
+    }       
 
     private EmailResult sendEmailsGroupedByTemplate(List<FieloPLT__EmailAlert__c> emails, Map<Id,Map<String,String>> dataValues){
 
@@ -303,6 +303,6 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     }
 
 	private String formatErrorDescription(String errorDescription) {
-		return errorDescription.substring(0, 255);
+        return errorDescription.Length() >= 255 ? errorDescription.substring(0, 255) : errorDescription;
 	}
 }
