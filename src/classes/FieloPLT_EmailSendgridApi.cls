@@ -266,12 +266,18 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         }
 
         // Send the emails
-        try {
-	        EmailTemplate emailTemplate = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
-			success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
-        } catch(Exception e) {
-			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
-        	success = false;
+        List<EmailTemplate> emailTemplates = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
+        if(emailTemplates.size() > 0) {
+            EmailTemplate emailTemplate = emailTemplates[0];        
+            try {
+                success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
+            } catch(Exception e) {
+    			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
+            	success = false;
+            }
+        } else {
+            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Email template not found or not active.');            
+            success = false;            
         }
         return success;
     }
