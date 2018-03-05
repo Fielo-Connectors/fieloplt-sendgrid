@@ -1,10 +1,12 @@
 global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterface {
 
     private class EmailData{
-       String personalizations;
-       String content;
-       String category;
-       Set<Id> emails;
+        String sender;
+        String personalizations;
+        String content;
+        String category;
+        Set<Id> emails;
+        String errorMessage = null; 
     }
 
     private class EmailResult{
@@ -24,7 +26,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             emailsToUpdate.add(new FieloPLT__EmailAlert__c(Id = errorEmailId, FieloPLT__Status__c = 'Error', FieloPLT__ErrorDescription__c = formatErrorDescription(emailResult.errorEmails.get(errorEmailId))));
         }       
         update emailsToUpdate;
-    }   
+    }       
 
     private EmailResult sendEmailsGroupedByTemplate(List<FieloPLT__EmailAlert__c> emails, Map<Id,Map<String,String>> dataValues){
 
@@ -52,7 +54,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             }
         }
 
-        List<EmailTemplate> emailTemplates = [SELECT Id, Body, NamespacePrefix, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName in : emailTemplateNames AND NamespacePrefix in : packagePrefixes];
+        List<EmailTemplate> emailTemplates = [SELECT Id, Body, NamespacePrefix, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE IsActive = true AND DeveloperName in : emailTemplateNames AND NamespacePrefix in : packagePrefixes];
         Map<String,EmailTemplate> emailTemplatesMap = new Map<String,EmailTemplate>();
 
         for (EmailTemplate et: emailTemplates) {
@@ -65,11 +67,11 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             if(callOutsCounter <= 10){
                 
                 EmailData emailData = getEmailData(emailTemplatesMap.get(templateName), emailAlertsbyTemplateMap.get(templateName), dataValues, 'FieloPLT__ToAddress__c');
-                if (emailData != null) {
+                if (String.isBlank(emailData.errorMessage)) {
 	                HttpResponse response = makeSendCallout(emailData);
 
 	                if (responseOk(response.getStatusCode())) {
-	                    // Update list of sent emails for changing the status later (not now becuase it would cause "uncommitted" error)
+	                    // Update list of sent emails for changing the status later (not now because it would cause "uncommitted" error)
 	                    sentEmails.addAll(emailData.emails);
 	                } else {
 	                    // Update list of emails with errors
@@ -81,7 +83,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
                 } else {
                     // Update list of emails with errors
                     for(SObject email : emailAlertsbyTemplateMap.get(templateName)) {
-                        errorEmails.put(email.Id, 'Email template not found.');
+                        errorEmails.put(email.Id, emailData.errorMessage);
                     }
                 }
             }else{
@@ -97,7 +99,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         Boolean success;
         System.debug('membersMap.values() = ' + membersMap.values());
         EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignStringId);
-        if (emailData != null) {
+        if (String.isBlank(emailData.errorMessage)) {
 	        HttpResponse response = makeSendCallout(emailData);       
 	        if (!responseOk(response.getStatusCode())) {
 	            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(response.getBody()));
@@ -106,7 +108,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 	            success = true; 
 	        }
     	} else {
-			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Email template not found.'); 
+			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = emailData.errorMessage); 
     		success = false;
     	}
         return success;
@@ -117,9 +119,21 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     }
 
     private EmailData getEmailData(EmailTemplate emailTemplate, List<SObject> emailList, Map<Id,Map<String,String>> dataValues, String emailField, String campaignStringId) {
+        String sender;
         String subject;
         String content;
         EmailData emailData = new EmailData();
+
+        List<OrgWideEmailAddress> owas = [select id, Address, DisplayName from OrgWideEmailAddress];
+        If (owas.size() > 0) {
+            System.debug('owas = ' + owas);
+            OrgWideEmailAddress owa = owas[0];  
+            System.debug('owa = ' + owa);             
+            sender = owa.Address;
+        } else {
+            emailData.errorMessage = 'No sender email configured.';
+            return emailData;            
+        }
 
         if(emailTemplate != null){
             //set and replace body with data
@@ -134,11 +148,12 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
                 content =                       
                         '{' +
                             '"type": "text/html",' +
-                            '"value": "' + emailTemplate.HTMLValue.escapeJava() + '"' +  
+                            '"value": "' + emailTemplate.HTMLValue.replace('<![CDATA[','').replace(']]>','').escapeJava() + '"' +                              
                         '}';
             }
         }else{
-        	return null;
+            emailData.errorMessage = 'Email template not found or not active.';
+        	return emailData;
         }
 
         String category = '';
@@ -182,6 +197,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
                                     '"substitutions": ' + substitutions +
                                 '}';
         }
+        emailData.sender = sender;
         emailData.content = content;    
         emailData.personalizations = personalizations;
         emailData.emails = emails;
@@ -196,7 +212,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
                             '],' +
                             '"from": ' + 
                                 '{' +
-                                '"email": "engineering@fielo.com"' +
+                                '"email": "' + emailData.sender + '"' +
                                 '},' +
                             '"content": [' +
                                 emailData.content +
@@ -266,12 +282,18 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         }
 
         // Send the emails
-        try {
-	        EmailTemplate emailTemplate = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
-			success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
-        } catch(Exception e) {
-			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
-        	success = false;
+        List<EmailTemplate> emailTemplates = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE IsActive = true AND DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
+        if(emailTemplates.size() > 0) {
+            EmailTemplate emailTemplate = emailTemplates[0];        
+            try {
+                success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
+            } catch(Exception e) {
+    			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
+            	success = false;
+            }
+        } else {
+            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Email template not found or not active.');            
+            success = false;            
         }
         return success;
     }
@@ -303,6 +325,6 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     }
 
 	private String formatErrorDescription(String errorDescription) {
-		return errorDescription.substring(0, 255);
+        return errorDescription.Length() >= 255 ? errorDescription.substring(0, 255) : errorDescription;
 	}
 }
