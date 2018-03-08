@@ -300,7 +300,12 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
     public void finishCampaign(Id campaignId, Boolean success, Id jobId) {
         if(success){
-            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Sent');
+            FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__Date__c, FieloPLT__Type__c, FieloPLT__Frequency__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
+            if (emailCampaign.Type__c == 'Recurrent') {
+                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Scheduled');
+            } else {
+                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Sent');
+            }
         } else {
             update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Error');
         }
