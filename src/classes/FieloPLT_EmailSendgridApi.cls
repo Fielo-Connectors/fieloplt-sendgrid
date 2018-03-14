@@ -283,39 +283,51 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
         // Send the emails
         List<EmailTemplate> emailTemplates = [SELECT Id, Body, HTMLValue, Subject, DeveloperName FROM EmailTemplate WHERE IsActive = true AND DeveloperName =: devName AND NamespacePrefix =: packagePrefix];
-        if(emailTemplates.size() > 0) {
-            EmailTemplate emailTemplate = emailTemplates[0];        
-            try {
-                success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);        	
-            } catch(Exception e) {
-    			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
-            	success = false;
+        try{      
+            FieloPLT.SObjectService.enableAdminPermission(true);        
+            if(emailTemplates.size() > 0) {
+                EmailTemplate emailTemplate = emailTemplates[0];        
+                try {
+                    success = sendCampaignEmails(membersMap, emailTemplate, memberValues, emailCampaign.FieloPLT__CampaignId__c, campaignId);           
+                } catch(Exception e) {
+                    update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(e.getMessage()));
+                    success = false;
+                }
+            } else {
+                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Email template not found or not active.');            
+                success = false;            
             }
-        } else {
-            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Email template not found or not active.');            
-            success = false;            
+            FieloPLT.SObjectService.enableAdminPermission(false);                        
+        } catch(Exception e){
+            FieloPLT.SObjectService.enableAdminPermission(false);           
         }
         return success;
     }
 
     public void finishCampaign(Id campaignId, Boolean success, Id jobId) {
-        if(success){
-            FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__Date__c, FieloPLT__Type__c, FieloPLT__Frequency__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
-            if (emailCampaign.Type__c == 'Recurrent') {
-                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Scheduled');
-                Date emailCampaignDate = emailCampaign.FieloPLT__Date__c;
-                List<String> frequency = emailCampaign.FieloPLT__Frequency__c.split('\\.');
-                if (frequency[0] == 'd') {
-                    emailCampaignDate = emailCampaignDate.addDays(Integer.valueOf(frequency[1]));
-                } else if (frequency[0] == 'm') {
-                    emailCampaignDate = emailCampaignDate.addMonths(Integer.valueOf(frequency[1]));
+        try{      
+            FieloPLT.SObjectService.enableAdminPermission(true);
+            if(success){
+                FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__Date__c, FieloPLT__Type__c, FieloPLT__Frequency__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
+                if (emailCampaign.Type__c == 'Recurrent') {
+                    update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Scheduled');
+                    Date emailCampaignDate = emailCampaign.FieloPLT__Date__c;
+                    List<String> frequency = emailCampaign.FieloPLT__Frequency__c.split('\\.');
+                    if (frequency[0] == 'd') {
+                        emailCampaignDate = emailCampaignDate.addDays(Integer.valueOf(frequency[1]));
+                    } else if (frequency[0] == 'm') {
+                        emailCampaignDate = emailCampaignDate.addMonths(Integer.valueOf(frequency[1]));
+                    }
+                    update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Date__c = emailCampaignDate);
+                } else {
+                    update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Sent');
                 }
-                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Date__c = emailCampaignDate);
             } else {
-                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Sent');
-            }
-        } else {
-            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Error');
+                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Error');
+            }    
+            FieloPLT.SObjectService.enableAdminPermission(false);            
+        } catch(Exception e){
+            FieloPLT.SObjectService.enableAdminPermission(false);
         }
     }
 
