@@ -261,7 +261,13 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     }
 
     public void startCampaign(Id campaignId) {
-        update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'InProgress');
+        try{      
+            FieloPLT.SObjectService.enableAdminPermission(true);
+            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'InProgress');
+            FieloPLT.SObjectService.enableAdminPermission(false);            
+        } catch(Exception e){
+            FieloPLT.SObjectService.enableAdminPermission(false);
+        }            
     }
 
     public Boolean executeCampaign(Id campaignId, Set<Id> memberIds, Map<Id,Map<String,String>> memberValues) {
