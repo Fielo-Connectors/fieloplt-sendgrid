@@ -234,6 +234,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
     private HttpResponse makeCampaignCallout(String externalId, Date campaignDate) {
         String datePar = DateTime.newInstance(campaignDate.year(), campaignDate.month(), campaignDate.day()).format('yyyy-MM-dd');
+        System.debug('stats URI = ' + 'https://api.sendgrid.com/v3/categories/stats?start_date=' + datePar + '&end_date=' + datePar + '&aggregated_by=day&categories=' + externalId);        
         return makeCallout('https://api.sendgrid.com/v3/categories/stats?start_date=' + datePar + '&end_date=' + datePar + '&aggregated_by=day&categories=' + externalId, 'GET');
     }   
 
@@ -339,8 +340,8 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
 
     public Map<String,Integer> getStatistics(String campaignId) {
         Map<String, Integer> result;
-        FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__Date__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
-        HttpResponse response = makeCampaignCallout(emailCampaign.FieloPLT__CampaignId__c, emailCampaign.FieloPLT__Date__c);
+        FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, CreatedDate FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
+        HttpResponse response = makeCampaignCallout(emailCampaign.FieloPLT__CampaignId__c, emailCampaign.CreatedDate.Date());
         if (responseOk(response.getStatusCode())) {
             Object data = ((List<Object>) JSON.deserializeUntyped(response.getBody()))[0];           
             Object stats = ((List<Object>)((Map<String, Object>) data).get('stats'))[0];
