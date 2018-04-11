@@ -1,4 +1,4 @@
-global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterface {
+global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterface {
 
     private class EmailData{
         String sender;
@@ -12,7 +12,9 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     private class EmailResult{
        Set<Id> sentEmails;
        Map<Id, String> errorEmails;
-    }   
+    }
+
+    static final Integer NUM_STATS = 6;
 
     public void sendTransactionalEmails(Set<Id> emailAlertIds, Map<Id,Map<String,String>> dataValues) {
         List<FieloPLT__EmailAlert__c> emails = [SELECT FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__ToAddress__c FROM FieloPLT__EmailAlert__c WHERE Id in : emailAlertIds ORDER BY FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c];
@@ -68,18 +70,18 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
                 
                 EmailData emailData = getEmailData(emailTemplatesMap.get(templateName), emailAlertsbyTemplateMap.get(templateName), dataValues, 'FieloPLT__ToAddress__c');
                 if (String.isBlank(emailData.errorMessage)) {
-	                HttpResponse response = makeSendCallout(emailData);
+                    HttpResponse response = makeSendCallout(emailData);
 
-	                if (responseOk(response.getStatusCode())) {
-	                    // Update list of sent emails for changing the status later (not now because it would cause "uncommitted" error)
-	                    sentEmails.addAll(emailData.emails);
-	                } else {
-	                    // Update list of emails with errors
-	                    for(Id emailId : emailData.emails) {
-	                        errorEmails.put(emailId, formatErrorDescription(response.getBody()));
-	                    }
-	                }           
-	                callOutsCounter++;                	
+                    if (responseOk(response.getStatusCode())) {
+                        // Update list of sent emails for changing the status later (not now because it would cause "uncommitted" error)
+                        sentEmails.addAll(emailData.emails);
+                    } else {
+                        // Update list of emails with errors
+                        for(Id emailId : emailData.emails) {
+                            errorEmails.put(emailId, formatErrorDescription(response.getBody()));
+                        }
+                    }           
+                    callOutsCounter++;                  
                 } else {
                     // Update list of emails with errors
                     for(SObject email : emailAlertsbyTemplateMap.get(templateName)) {
@@ -100,17 +102,17 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         System.debug('membersMap.values() = ' + membersMap.values());
         EmailData emailData = getEmailData(emailTemplate, membersMap.values(), memberValues, 'FieloPLT__Email__c', campaignStringId);
         if (String.isBlank(emailData.errorMessage)) {
-	        HttpResponse response = makeSendCallout(emailData);       
-	        if (!responseOk(response.getStatusCode())) {
-	            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(response.getBody()));
-	            success = false;
-	        }else {
-	            success = true; 
-	        }
-    	} else {
-			update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = emailData.errorMessage); 
-    		success = false;
-    	}
+            HttpResponse response = makeSendCallout(emailData);       
+            if (!responseOk(response.getStatusCode())) {
+                update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = formatErrorDescription(response.getBody()));
+                success = false;
+            }else {
+                success = true; 
+            }
+        } else {
+            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = emailData.errorMessage); 
+            success = false;
+        }
         return success;
     }
 
@@ -153,7 +155,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
             }
         }else{
             emailData.errorMessage = 'Email template not found or not active.';
-        	return emailData;
+            return emailData;
         }
 
         String category = '';
@@ -232,10 +234,13 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         return response;                                        
     }   
 
-    private HttpResponse makeCampaignCallout(String externalId, Date campaignDate) {
-        String datePar = DateTime.newInstance(campaignDate.year(), campaignDate.month(), campaignDate.day()).format('yyyy-MM-dd');
-        System.debug('stats URI = ' + 'https://api.sendgrid.com/v3/categories/stats?start_date=' + datePar + '&end_date=' + datePar + '&aggregated_by=day&categories=' + externalId);        
-        return makeCallout('https://api.sendgrid.com/v3/categories/stats?start_date=' + datePar + '&end_date=' + datePar + '&aggregated_by=day&categories=' + externalId, 'GET');
+    private HttpResponse makeStatsCallout(String externalId, Date campaignDateIni, Date campaignDateEnd) {
+        System.debug('campaignDateIni = ' + campaignDateIni);
+        System.debug('campaignDateEnd = ' + campaignDateEnd);
+        String dateIni = DateTime.newInstance(campaignDateIni.year(), campaignDateIni.month(), campaignDateIni.day()).format('yyyy-MM-dd');
+        String dateEnd = DateTime.newInstance(campaignDateEnd.year(), campaignDateEnd.month(), campaignDateEnd.day()).format('yyyy-MM-dd');        
+        System.debug('stats URI = ' + 'https://api.sendgrid.com/v3/categories/stats?start_date=' + dateIni + '&end_date=' + dateEnd + '&aggregated_by=month&categories=' + externalId);        
+        return makeCallout('https://api.sendgrid.com/v3/categories/stats?start_date=' + dateIni + '&end_date=' + dateEnd + '&aggregated_by=month&categories=' + externalId, 'GET');
     }   
 
     private HttpResponse makeCallout(String endpoint, String method) {
@@ -272,8 +277,8 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
     }
 
     public Boolean executeCampaign(Id campaignId, Set<Id> memberIds, Map<Id,Map<String,String>> memberValues) {
-    	Boolean success;
-    	System.debug('memberIds = ' + memberIds);
+        Boolean success;
+        System.debug('memberIds = ' + memberIds);
         FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
         Map<Id,FieloPLT__Member__c> membersMap = new Map<Id,FieloPLT__Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
         // TODO: NO TEMPLATE = ERROR
@@ -338,25 +343,89 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProviderInterfac
         }
     }
 
-    public Map<String,Integer> getStatistics(String campaignId) {
-        Map<String, Integer> result;
-        FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, CreatedDate FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
-        HttpResponse response = makeCampaignCallout(emailCampaign.FieloPLT__CampaignId__c, emailCampaign.CreatedDate.Date());
+    public Map<Date, Map<String,Integer>> getStatistics(String campaignId) {
+        Map<Date, Map<String,Integer>> result;
+        FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__Type__c, FieloPLT__Frequency__c, FieloPLT__Date__c, CreatedDate FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
+
+        Date dateIni;
+        Date dateEnd;
+        if (emailCampaign.FieloPLT__Type__c == 'Recurrent') {
+            dateIni = emailCampaign.CreatedDate.Date();
+            dateEnd = Date.today();
+        } else { // emailCampaign.FieloPLT__Type__c == 'Standard'
+            dateEnd = dateIni = (emailCampaign.FieloPLT__Date__c < emailCampaign.CreatedDate ? emailCampaign.CreatedDate.Date() : emailCampaign.FieloPLT__Date__c);           
+        }
+        HttpResponse response = makeStatsCallout(emailCampaign.FieloPLT__CampaignId__c, dateIni, dateEnd);
+
+        Boolean hasEmail = false;
         if (responseOk(response.getStatusCode())) {
-            Object data = ((List<Object>) JSON.deserializeUntyped(response.getBody()))[0];           
-            Object stats = ((List<Object>)((Map<String, Object>) data).get('stats'))[0];
-            Map<String, Object> metrics = (Map<String, Object>)((Map<String, Object>) stats).get('metrics');
-            result = new Map<String, Integer>();
-            for(String strKey: metrics.keyset()){
-                result.put(strKey, Integer.valueof(metrics.get(strKey)));
-            }           
+
+            Integer numLatestStats = NUM_STATS;
+            Integer factor = 1;            
+            if (emailCampaign.Type__c == 'Recurrent') {
+                List<String> frequency = emailCampaign.Frequency__c.split('\\.');
+                if (frequency[0] == 'm') {
+                    Integer monthAggregator = Integer.valueOf(frequency[1]);
+                    if (monthAggregator == 1) {
+                        factor = 3;
+                    } else if (monthAggregator == 3) {
+                        factor = 6;
+                    } else if (monthAggregator >= 6) {
+                        factor = 12;
+                    }
+                }                  
+            }
+            numLatestStats = NUM_STATS * factor;
+
+            List<Object> allStats = (List<Object>) JSON.deserializeUntyped(response.getBody());
+            System.debug('allStats = ' + allStats);
+            Integer statsLen = allStats.size();
+            Integer firstStatsIndex = (statsLen <= NUM_STATS ? 0 : statsLen - NUM_STATS);
+
+            result = new Map<Date, Map<String, Integer>>();
+            Map<String, Integer> statsMap = new Map<String, Integer>();
+            Date statsDate = null;
+            Boolean hasEmailPeriod = false;
+            for(Integer i = firstStatsIndex; i < statsLen; i++) {
+                Object data = allStats[i];
+                if (statsDate == null) {                    
+                    statsDate = Date.valueOf((String)((Map<String, Object>) data).get('date'));        
+                }
+                Object stats = ((List<Object>)((Map<String, Object>) data).get('stats'))[0];
+                Map<String, Object> metrics = (Map<String, Object>)((Map<String, Object>) stats).get('metrics');
+
+                for(String strKey: metrics.keyset()){
+                    if (strKey == 'requests' && Integer.valueof(metrics.get(strKey)) > 0) {
+                        hasEmail = true;
+                        hasEmailPeriod = true;
+                    }
+                    if(statsMap.containsKey(strKey)) {
+                        statsMap.put(strKey, statsMap.get(strKey) + Integer.valueof(metrics.get(strKey)));
+                    } else {
+                        statsMap.put(strKey, Integer.valueof(metrics.get(strKey)));
+                    }
+                }           
+
+                if (Math.mod(i + 1, factor) == 0 || i == statsLen - 1) {
+                    if (hasEmailPeriod) {  // TODO: should we show periods without emails when they are not the last? (i.e., should we allow gaps?)
+                        result.put(statsDate, statsMap);
+                    }
+                    statsDate = null;
+                    statsMap = new Map<String, Integer>();
+                    hasEmailPeriod = false;
+                }
+            }       
         } else {
             // TODO: handle errors
         }
+        if (!hasEmail) {
+            result = null;
+        }
+        System.debug('stats result = ' + result);
         return result;
     }
 
-	private String formatErrorDescription(String errorDescription) {
+    private String formatErrorDescription(String errorDescription) {
         return errorDescription.Length() >= 255 ? errorDescription.substring(0, 255) : errorDescription;
-	}
+    }
 }
