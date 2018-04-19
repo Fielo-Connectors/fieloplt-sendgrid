@@ -279,7 +279,15 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
     public Boolean executeCampaign(Id campaignId, Set<Id> memberIds, Map<Id,Map<String,String>> memberValues) {
         Boolean success;
         System.debug('memberIds = ' + memberIds);
-        FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
+        FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__EmailTemplate__r.FieloPLT__IsActive__c, FieloPLT__CampaignId__c, FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, FieloPLT__EmailTemplate__r.FieloPLT__FieldSet__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
+
+        If(!emailCampaign.FieloPLT__EmailTemplate__r.FieloPLT__IsActive__c) {
+            FieloPLT.SObjectService.enableAdminPermission(true);
+            update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__ErrorDescription__c = 'Template is not active.');
+            FieloPLT.SObjectService.enableAdminPermission(false);           
+            return false;
+        }
+        
         Map<Id,FieloPLT__Member__c> membersMap = new Map<Id,FieloPLT__Member__c>([SELECT FieloPLT__Email__c FROM FieloPLT__Member__c WHERE Id in : memberIds]);
         // TODO: NO TEMPLATE = ERROR
 
