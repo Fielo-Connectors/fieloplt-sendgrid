@@ -40,13 +40,14 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
 
         Set<String> emailTemplateNames = new Set<String>();
         Set<String> packagePrefixes = new Set<String>{null,''};
+        System.debug('emails = ' + emails);
         for(FieloPLT__EmailAlert__c ea : emails){
             if(emailAlertsbyTemplateMap.containsKey(ea.FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c)){
                 emailAlertsbyTemplateMap.get(ea.FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c).add(ea);
             }else{
                 emailAlertsbyTemplateMap.put(ea.FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c, new List<FieloPLT__EmailAlert__c>{ea});
             }
-
+            System.debug('ea = ' + ea);
             List<String> fieldMeta = ea.FieloPLT__EmailTemplate__r.FieloPLT__TemplateUniqueName__c.split('__');
             if(fieldMeta.size() > 1){
                 packagePrefixes.add(fieldMeta[0]);
@@ -125,6 +126,25 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
         String subject;
         String content;
         EmailData emailData = new EmailData();
+        
+       System.debug('SendGridApi');
+        
+       string txtAreaHtml = emailTemplate.HTMLValue;
+        
+        if (String.isBlank(emailTemplate.HTMLValue)) 
+          txtAreaHtml = emailTemplate.Body;
+       
+        List<String> parts = txtAreaHtml.split('\\{');
+           
+        
+         for (Integer i = 1; i < parts.size(); i++) {
+    		Integer result = parts[i].indexOf('}');
+        	String s2 = parts[i].mid(0, (result + 1));
+        	String s3 = s2.stripHtmlTags();
+        	parts[i] = '{' + s3 + parts[i].removeStart(s2);
+		}
+        
+        emailTemplate.HTMLValue = String.join(parts, ' ');                           
 
         List<OrgWideEmailAddress> owas = [select id, Address, DisplayName from OrgWideEmailAddress];
         If (owas.size() > 0) {
@@ -174,6 +194,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
             String substitutions = '';
             if(sub != null){
                 for(String field : sub.keySet()){
+                    System.debug('field = sub.keySet' + field);    
                     if (substitutions != '') {
                         substitutions += ',';
                     }                           
@@ -221,6 +242,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
                             ']' +       
                             emailData.category +            
                         '}';
+        
         System.debug('Before callout - body = ' + body);        
 
         HttpResponse response = makeCallout('https://api.sendgrid.com/v3/mail/send', 'POST', body);
