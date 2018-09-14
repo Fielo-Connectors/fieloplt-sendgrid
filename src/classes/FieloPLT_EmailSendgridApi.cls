@@ -351,7 +351,7 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
             FieloPLT.SObjectService.enableAdminPermission(true);
             if(success){
                 FieloPLT__EmailCampaign__c emailCampaign = [SELECT FieloPLT__Date__c, FieloPLT__Type__c, FieloPLT__Frequency__c FROM FieloPLT__EmailCampaign__c WHERE Id =: campaignId];
-                if (emailCampaign.Type__c == 'Recurrent') {
+                if (emailCampaign.FieloPLT__Type__c == 'Recurrent') {
                     update new FieloPLT__EmailCampaign__c(Id = campaignId, FieloPLT__Status__c = 'Scheduled');
                     Date emailCampaignDate = emailCampaign.FieloPLT__Date__c;
                     List<String> frequency = emailCampaign.FieloPLT__Frequency__c.split('\\.');
@@ -392,8 +392,8 @@ global class FieloPLT_EmailSendgridApi implements FieloPLT.EmailProvidersInterfa
 
             Integer numLatestStats = NUM_STATS;
             Integer factor = 1;            
-            if (emailCampaign.Type__c == 'Recurrent') {
-                List<String> frequency = emailCampaign.Frequency__c.split('\\.');
+            if (emailCampaign.FieloPLT__Type__c == 'Recurrent') {
+                List<String> frequency = emailCampaign.FieloPLT__Frequency__c.split('\\.');
                 if (frequency[0] == 'm') {
                     Integer monthAggregator = Integer.valueOf(frequency[1]);
                     if (monthAggregator == 1) {
