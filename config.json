@@ -3,9 +3,9 @@
 	"version":"master",
 	"dependencies":[
 		{
-			"type":"package",
-			"version":"2.56.10",
-			"name":"FieloPLT"
+			"type":"linkRepository",
+			"version":"master",
+			"name":"FieloIncentiveAutomation/fielodeploy"
 		}
 	]
 }
